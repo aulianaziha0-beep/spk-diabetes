@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Pendukung Keputusan - Prediksi Risiko Diabetes (KNN)</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #e06bac;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 950px;
+            margin: auto;
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        h2, h3 {
+            color: #2c3e50;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #680a5b;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #800e50;
+            color: rgb(255, 255, 255);
+            padding: 12px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+            font-weight: bold;
+        }
+        button:hover {
+            background-color: #219653;
+        }
+        .result-section {
+            margin-top: 30px;
+            padding: 20px;
+            background: #eef2f3;
+            border-radius: 6px;
+            display: none;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+        th, td {
+            padding: 10px;
+            text-align: center;
+        }
+        th {
+            background-color: #34495e;
+            color: white;
+        }
+        .conclusion {
+            margin-top: 20px;
+            padding: 15px;
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+            border-radius: 5px;
+        }
+        .risiko-rendah {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .risiko-tinggi {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .log-box {
+            background: #fff;
+            padding: 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Sistem Pendukung Keputusan: Prediksi Risiko Diabetes</h2>
+    <p>Masukkan data pemeriksaan pasien di bawah ini untuk memproses algoritma K-Nearest Neighbors (KNN).</p>
+    
+    <div class="form-group">
+        <label for="usia">Usia (Tahun):</label>
+        <input type="number" id="usia" value="42">
+    </div>
+    
+    <div class="form-group">
+        <label for="bmi">BMI (Gunakan titik untuk desimal, cth: 28.5):</label>
+        <input type="text" id="bmi" value="28.5">
+    </div>
+    
+    <div class="form-group">
+        <label for="glukosa">Glukosa:</label>
+        <input type="number" id="glukosa" value="130">
+    </div>
+    
+    <div class="form-group">
+        <label for="tekanan">Tekanan Darah (Tensi):</label>
+        <input type="number" id="tekanan" value="128">
+    </div>
+    
+    <div class="form-group">
+        <label for="riwayat">Riwayat Keluarga (0 = Tidak Ada, 1 = Ada):</label>
+        <select id="riwayat">
+            <option value="0">0 - Tidak Ada</option>
+            <option value="1" selected>1 - Ada</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label for="k_val">Nilai K (Jumlah Tetangga):</label>
+        <input type="number" id="k_val" value="3">
+    </div>
+
+    <button type="button" onclick="jalankanKNN()">Proses Sistem Pendukung Keputusan</button>
+
+    <!-- Bagian Proses dan Hasil -->
+    <div id="resultSection" class="result-section">
+        <h3>1. Proses Perhitungan & Normalisasi Data</h3>
+        <div id="processLog" class="log-box"></div>
+
+        <h3>2. Daftar Tetangga Terdekat (Nearest Neighbors)</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Pasien</th>
+                    <th>Usia</th>
+                    <th>BMI</th>
+                    <th>Glukosa</th>
+                    <th>Tekanan Darah</th>
+                    <th>Riwayat</th>
+                    <th>Kelas Asli</th>
+                    <th>Jarak (Distance)</th>
+                </tr>
+            </thead>
+            <tbody id="neighborTableBody">
+            </tbody>
+        </table>
+
+        <h3>3. Kesimpulan Akhir</h3>
+        <div id="conclusionBox" class="conclusion"></div>
+    </div>
+</div>
+
+<script>
+    const dataset = [
+        { id: "P01", usia: 25, bmi: 21.5, glukosa: 90, tekanan: 110, riwayat: 0, kelas: 0, label: "Rendah" },
+        { id: "P02", usia: 30, bmi: 23.1, glukosa: 95, tekanan: 115, riwayat: 0, kelas: 0, label: "Rendah" },
+        { id: "P03", usia: 35, bmi: 25.0, glukosa: 105, tekanan: 120, riwayat: 0, kelas: 0, label: "Rendah" },
+        { id: "P04", usia: 40, bmi: 27.5, glukosa: 120, tekanan: 125, riwayat: 1, kelas: 1, label: "Tinggi" },
+        { id: "P05", usia: 45, bmi: 30.2, glukosa: 140, tekanan: 135, riwayat: 1, kelas: 1, label: "Tinggi" },
+        { id: "P06", usia: 50, bmi: 31.5, glukosa: 155, tekanan: 140, riwayat: 1, kelas: 1, label: "Tinggi" },
+        { id: "P07", usia: 55, bmi: 33.0, glukosa: 165, tekanan: 145, riwayat: 1, kelas: 1, label: "Tinggi" },
+        { id: "P08", usia: 28, bmi: 22.5, glukosa: 92, tekanan: 112, riwayat: 0, kelas: 0, label: "Rendah" },
+        { id: "P09", usia: 38, bmi: 26.8, glukosa: 115, tekanan: 122, riwayat: 0, kelas: 0, label: "Rendah" },
+        { id: "P10", usia: 48, bmi: 29.5, glukosa: 145, tekanan: 130, riwayat: 1, kelas: 1, label: "Tinggi" }
+    ];
+
+    function jalankanKNN() {
+        try {
+            const rawBmi = document.getElementById('bmi').value.replace(',', '.');
+            
+            const inputPasien = {
+                usia: parseFloat(document.getElementById('usia').value),
+                bmi: parseFloat(rawBmi),
+                glukosa: parseFloat(document.getElementById('glukosa').value),
+                tekanan: parseFloat(document.getElementById('tekanan').value),
+                riwayat: parseInt(document.getElementById('riwayat').value)
+            };
+
+            const K = parseInt(document.getElementById('k_val').value);
+
+            if (isNaN(inputPasien.usia) || isNaN(inputPasien.bmi) || isNaN(inputPasien.glukosa) || isNaN(inputPasien.tekanan) || isNaN(K)) {
+                alert("Mohon isi semua data dengan angka yang benar!");
+                return;
+            }
+
+            const allData = [...dataset, inputPasien];
+            const features = ['usia', 'bmi', 'glukosa', 'tekanan', 'riwayat'];
+            let minMax = {};
+
+            features.forEach(f => {
+                const values = allData.map(d => d[f]);
+                minMax[f] = {
+                    min: Math.min(...values),
+                    max: Math.max(...values)
+                };
+            });
+
+            function normalize(val, f) {
+                const range = minMax[f].max - minMax[f].min;
+                if (range === 0) return 0;
+                return (val - minMax[f].min) / range;
+            }
+
+            const normInput = {
+                usia: normalize(inputPasien.usia, 'usia'),
+                bmi: normalize(inputPasien.bmi, 'bmi'),
+                glukosa: normalize(inputPasien.glukosa, 'glukosa'),
+                tekanan: normalize(inputPasien.tekanan, 'tekanan'),
+                riwayat: normalize(inputPasien.riwayat, 'riwayat')
+            };
+
+            let calculatedDistances = dataset.map(item => {
+                const normItem = {
+                    usia: normalize(item.usia, 'usia'),
+                    bmi: normalize(item.bmi, 'bmi'),
+                    glukosa: normalize(item.glukosa, 'glukosa'),
+                    tekanan: normalize(item.tekanan, 'tekanan'),
+                    riwayat: normalize(item.riwayat, 'riwayat')
+                };
+
+                let sumSq = 0;
+                features.forEach(f => {
+                    sumSq += Math.pow(normItem[f] - normInput[f], 2);
+                });
+                const distance = Math.sqrt(sumSq);
+
+                return { ...item, distance: distance };
+            });
+
+            calculatedDistances.sort((a, b) => a.distance - b.distance);
+            const neighbors = calculatedDistances.slice(0, K);
+
+            let logText = `Rentang Min-Max Normalisasi:<br>`;
+            features.forEach(f => {
+                logText += `&bull; ${f.toUpperCase()}: Min = ${minMax[f].min}, Max = ${minMax[f].max}<br>`;
+            });
+            logText += `<br>Hasil Normalisasi Pasien Baru:<br>` +
+                       `&bull; Usia: ${normInput.usia.toFixed(3)} | BMI: ${normInput.bmi.toFixed(3)} | Glukosa: ${normInput.glukosa.toFixed(3)} | Tekanan Darah: ${normInput.tekanan.toFixed(3)} | Riwayat: ${normInput.riwayat.toFixed(3)}`;
+            document.getElementById('processLog').innerHTML = logText;
+
+            let tableHtml = '';
+            neighbors.forEach(n => {
+                tableHtml += `<tr>
+                    <td>${n.id}</td>
+                    <td>${n.usia}</td>
+                    <td>${n.bmi}</td>
+                    <td>${n.glukosa}</td>
+                    <td>${n.tekanan}</td>
+                    <td>${n.riwayat}</td>
+                    <td>${n.kelas} (${n.label})</td>
+                    <td>${n.distance.toFixed(4)}</td>
+                </tr>`;
+            });
+            document.getElementById('neighborTableBody').innerHTML = tableHtml;
+
+            let countTinggi = neighbors.filter(n => n.kelas === 1).length;
+            let countRendah = neighbors.filter(n => n.kelas === 0).length;
+
+            let conclusionBox = document.getElementById('conclusionBox');
+            let resultSection = document.getElementById('resultSection');
+            resultSection.style.display = 'block';
+
+            if (countTinggi > countRendah) {
+                conclusionBox.className = 'conclusion risiko-tinggi';
+                conclusionBox.innerHTML = `KESIMPULAN: Berdasarkan perhitungan K = ${K} tetangga terdekat, pasien diprediksi memiliki <strong>RISIKO TINGGI (Kelas 1)</strong> diabetes (Jumlah Tetangga Risiko Tinggi: ${countTinggi}, Risiko Rendah: ${countRendah}).`;
+            } else {
+                conclusionBox.className = 'conclusion risiko-rendah';
+                conclusionBox.innerHTML = `KESIMPULAN: Berdasarkan perhitungan K = ${K} tetangga terdekat, pasien diprediksi memiliki <strong>RISIKO RENDAH (Kelas 0)</strong> diabetes (Jumlah Tetangga Risiko Tinggi: ${countTinggi}, Risiko Rendah: ${countRendah}).`;
+            }
+        } catch (err) {
+            alert("Terjadi kesalahan pada input: " + err.message);
+        }
+    }
+</script>
+
+</body>
+</html>
